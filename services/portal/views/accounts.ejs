@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>paylane — accounts</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; color: #222; }
+    h1 { color: #0D2C54; }
+    table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; font-size: 0.9rem; }
+    th { background: #0D2C54; color: #fff; }
+    nav a { margin-right: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>paylane — accounts</h1>
+  <nav><a href="/">Payments</a><a href="/accounts">Accounts</a></nav>
+  <table>
+    <tr><th>Account</th><th>Holder</th><th>IFSC</th><th>Balance</th><th>Status</th></tr>
+    <% accounts.forEach(a => { %>
+      <tr>
+        <td><%= a.account_ref %></td>
+        <td><%= a.holder_name %></td>
+        <td><%= a.ifsc %></td>
+        <td>₹<%= (a.balance_paise/100).toFixed(2) %></td>
+        <td><%= a.status %></td>
+      </tr>
+    <% }) %>
+  </table>
+</body>
+</html>

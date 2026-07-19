@@ -1,0 +1,125 @@
+# ---------------------------------------------------------------------------
+# REFERENCE ONLY — this is a scaffold, not a finished file.
+#
+# In Milestone 4 you deploy paylane to the EC2 box. On your laptop, compose
+# BUILDS the images from local Dockerfiles. On the box, there are no
+# Dockerfiles and no source — the box PULLS the images your pipeline already
+# built and pushed to GHCR.
+#
+# This file shows the shape of that. The TODOs are yours to complete — do not
+# just delete them and hope. Getting this right is part of the milestone.
+#
+# Put the finished version on the box with Ansible (it is configuration, and
+# configuration belongs in the playbook), then run, from /opt/paylane:
+#
+#     docker compose -f docker-compose.ec2.yml up -d
+# ---------------------------------------------------------------------------
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: paylane
+      POSTGRES_PASSWORD: paylane_dev_pw   # TODO: this is a dev password. For a
+                                          # real deployment it belongs in a
+                                          # secret, not in a committed file.
+      POSTGRES_DB: paylane
+    volumes:
+      - paylane-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paylane -d paylane"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mandate-svc:
+    # TODO: replace OWNER with your lowercase GitHub username, and confirm the
+    # tag. :latest is easy; a specific build number is traceable.
+    image: ghcr.io/OWNER/paylane-mandate-svc:latest
+    environment:
+      DATABASE_URL: postgresql://paylane:paylane_dev_pw@postgres:5432/paylane
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+
+  payment-svc:
+    image: ghcr.io/OWNER/paylane-payment-svc:latest
+    environment:
+      DATABASE_URL: postgresql://paylane:paylane_dev_pw@postgres:5432/paylane
+      REDIS_URL: redis://redis:6379/0
+      # TODO: payment-svc calls mandate-svc. On the box, what hostname should
+      # it use? (Hint: it is NOT localhost. Services on the same compose
+      # network reach each other by service name.)
+      MANDATE_SVC_URL: http://TODO:3001
+    depends_on:
+      - mandate-svc
+    ports:
+      - "3002:3002"
+
+  ledger-svc:
+    image: ghcr.io/OWNER/paylane-ledger-svc:latest
+    environment:
+      DATABASE_URL: postgresql://paylane:paylane_dev_pw@postgres:5432/paylane
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3003:3003"
+
+  settlement-worker:
+    image: ghcr.io/OWNER/paylane-settlement-worker:latest
+    environment:
+      DATABASE_URL: postgresql://paylane:paylane_dev_pw@postgres:5432/paylane
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # No ports — the worker is not a server.
+
+  portal:
+    image: ghcr.io/OWNER/paylane-portal:latest
+    environment:
+      # TODO: the portal calls the three services. Same question as above —
+      # what hostnames does it use on the box's compose network?
+      PAYMENT_SVC_URL: http://TODO:3002
+      MANDATE_SVC_URL: http://TODO:3001
+      LEDGER_SVC_URL: http://TODO:3003
+    depends_on:
+      - payment-svc
+      - mandate-svc
+      - ledger-svc
+    ports:
+      - "3000:3000"
+
+  # TODO (Milestone 4b): add promtail here to ship this box's container logs
+  # to the Loki instance running on your laptop. It needs the Docker socket
+  # and your laptop's address. Leave this until deploy and observability work.
+
+volumes:
+  paylane-pgdata:
+
+# ---------------------------------------------------------------------------
+# One more thing you must not forget: the database schema.
+#
+# The images contain application code, not data. The first time this stack
+# comes up on the box, the payments/accounts/mandates tables do not exist yet.
+# You need to run scripts/seed-db.py against the box's Postgres exactly once —
+# think about how. (Copy the script over and run it? A one-shot container?
+# There is no single right answer; there is a documented one you can defend.)
+# ---------------------------------------------------------------------------
