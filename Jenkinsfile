@@ -19,8 +19,9 @@ pipeline {
             steps {
                 sh '''
                     python3 -m pip install --break-system-packages ruff==0.15.21
-
-                    ~/.local/bin/ruff check \
+                    
+ 
+                    python3 -m ruff check \
                     services/payment-svc/app \
                     services/mandate-svc/app \
                     services/ledger-svc/app \
