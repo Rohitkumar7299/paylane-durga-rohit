@@ -6,11 +6,8 @@ pipeline {
     environment {
 
         REGISTRY = 'ghcr.io'
-
         OWNER = 'rohitkumar7299'
-
         GHCR = credentials('ghcr-creds')
-
         EC2_IP = '40.192.16.213'
 
     }
@@ -20,15 +17,10 @@ pipeline {
 
 
         stage('Checkout') {
-
             steps {
-
                 checkout scm
-
             }
-
         }
-
 
 
         stage('Lint') {
@@ -36,16 +28,13 @@ pipeline {
             steps {
 
                 sh '''
+                    python3 -m pip install --break-system-packages ruff==0.15.21
 
-                python3 -m pip install --break-system-packages ruff==0.15.21
-
-
-                python3 -m ruff check \\
-                services/payment-svc/app \\
-                services/mandate-svc/app \\
-                services/ledger-svc/app \\
-                services/settlement-worker/worker.py
-
+                    python3 -m ruff check \
+                    services/payment-svc/app \
+                    services/mandate-svc/app \
+                    services/ledger-svc/app \
+                    services/settlement-worker/worker.py
                 '''
 
             }
@@ -59,11 +48,9 @@ pipeline {
             steps {
 
                 sh '''
-
-                echo $GHCR_PSW | docker login ghcr.io \\
-                -u $GHCR_USR \\
-                --password-stdin
-
+                    echo "$GHCR_PSW" | docker login ghcr.io \
+                    -u "$GHCR_USR" \
+                    --password-stdin
                 '''
 
             }
@@ -80,17 +67,11 @@ pipeline {
 
 
                     def services = [
-
                         'payment-svc',
-
                         'mandate-svc',
-
                         'ledger-svc',
-
                         'settlement-worker',
-
                         'portal'
-
                     ]
 
 
@@ -102,27 +83,17 @@ pipeline {
 
                         sh """
 
-                        echo "Building ${image}"
+                            echo "Building ${image}"
 
 
-                        docker build \\
-
-                        -t ${image}:${env.BUILD_NUMBER} \\
-
-                        -t ${image}:latest \\
-
-                        services/${svc}
+                            docker build -t ${image}:${BUILD_NUMBER} -t ${image}:latest services/${svc}
 
 
+                            echo "Pushing ${image}:${BUILD_NUMBER}"
 
-                        echo "Pushing ${image}"
+                            docker push ${image}:${BUILD_NUMBER}
 
-
-                        docker push ${image}:${env.BUILD_NUMBER}
-
-
-                        docker push ${image}:latest
-
+                            docker push ${image}:latest
 
                         """
 
@@ -133,6 +104,7 @@ pipeline {
             }
 
         }
+
 
 
 
@@ -147,27 +119,20 @@ pipeline {
 
                     sh '''
 
-                    ssh -o StrictHostKeyChecking=no ubuntu@$EC2_IP "
-
+                    ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} "
 
                     cd /opt/paylane &&
 
 
-                    echo $GHCR_PSW | docker login ghcr.io \\
-
-                    -u $GHCR_USR \\
-
+                    echo '$GHCR_PSW' | docker login ghcr.io \
+                    -u '$GHCR_USR' \
                     --password-stdin &&
-
 
 
                     docker compose -f docker-compose.ec2.yml pull &&
 
 
-
                     docker compose -f docker-compose.ec2.yml up -d
-
-
 
                     "
 
@@ -178,6 +143,7 @@ pipeline {
             }
 
         }
+
 
 
 
@@ -192,15 +158,11 @@ pipeline {
 
                     sh '''
 
-                    ssh -o StrictHostKeyChecking=no ubuntu@$EC2_IP "
-
+                    ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} "
 
                     cd /opt/paylane &&
 
-
                     docker ps
-
-
 
                     "
 
@@ -222,14 +184,14 @@ pipeline {
 
         success {
 
-            echo 'Paylane deployment successful'
+            echo "Paylane deployment successful"
 
         }
 
 
         failure {
 
-            echo 'Paylane deployment failed'
+            echo "Paylane deployment failed"
 
         }
 
