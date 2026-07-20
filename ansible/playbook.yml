@@ -42,5 +42,22 @@
       register: docker_version
       changed_when: false
 
-    - debug:
-        var: docker_version.stdout
+    - name: Display Docker version
+      debug:
+        msg: "{{ docker_version.stdout }}"
+
+    - name: Copy docker-compose.yml
+      copy:
+        src: files/docker-compose.yml
+        dest: /opt/paylane/docker-compose.yml
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+
+    - name: Copy environment file
+      copy:
+        src: files/.env
+        dest: /opt/paylane/.env
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
