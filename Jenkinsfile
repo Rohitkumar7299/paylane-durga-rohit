@@ -129,10 +129,10 @@ pipeline {
                     --password-stdin &&
 
 
-                    docker compose -f docker-compose.ec2.yml pull &&
+                    docker compose -f docker-compose.yml pull &&
 
 
-                    docker compose -f docker-compose.ec2.yml up -d
+                    docker compose -f docker-compose.yml up -d
 
                     "
 
