@@ -4,3 +4,13 @@ __pycache__/
 node_modules/
 logs/
 .pids/
+
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hc
+
+# Keys
+*.peml
