@@ -45,6 +45,14 @@ pipeline {
             steps {
                 script {
 
+                    sh '''
+                        docker buildx inspect paylane-builder >/dev/null 2>&1 || \
+                        docker buildx create --name paylane-builder --use
+
+                        docker buildx use paylane-builder
+                        docker buildx inspect --bootstrap
+                    '''
+
                     def services = [
                         'payment-svc',
                         'mandate-svc',
@@ -58,17 +66,14 @@ pipeline {
                         def image = "${REGISTRY}/${OWNER}/paylane-${svc}"
 
                         sh """
-                            echo "Building ${image}"
+                            echo "Building and pushing ${image}"
 
-                            docker build \
+                            docker buildx build \
+                                --platform linux/amd64 \
+                                --push \
                                 -t ${image}:${BUILD_NUMBER} \
                                 -t ${image}:latest \
                                 services/${svc}
-
-                            echo "Pushing ${image}:${BUILD_NUMBER}"
-
-                            docker push ${image}:${BUILD_NUMBER}
-                            docker push ${image}:latest
                         """
                     }
                 }
