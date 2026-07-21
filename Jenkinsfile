@@ -2,19 +2,14 @@ pipeline {
 
     agent any
 
-
     environment {
-
         REGISTRY = 'ghcr.io'
         OWNER = 'rohitkumar7299'
         GHCR = credentials('ghcr-creds')
-        EC2_IP = '40.192.16.213'
-
+        EC2_IP = '16.112.226.62'
     }
 
-
     stages {
-
 
         stage('Checkout') {
             steps {
@@ -22,49 +17,33 @@ pipeline {
             }
         }
 
-
         stage('Lint') {
-
             steps {
-
                 sh '''
                     python3 -m pip install --break-system-packages ruff==0.15.21
 
                     python3 -m ruff check \
-                    services/payment-svc/app \
-                    services/mandate-svc/app \
-                    services/ledger-svc/app \
-                    services/settlement-worker/worker.py
+                        services/payment-svc/app \
+                        services/mandate-svc/app \
+                        services/ledger-svc/app \
+                        services/settlement-worker/worker.py
                 '''
-
             }
-
         }
-
-
 
         stage('Login to GHCR') {
-
             steps {
-
                 sh '''
                     echo "$GHCR_PSW" | docker login ghcr.io \
-                    -u "$GHCR_USR" \
-                    --password-stdin
+                        -u "$GHCR_USR" \
+                        --password-stdin
                 '''
-
             }
-
         }
 
-
-
         stage('Build and Push Images') {
-
             steps {
-
                 script {
-
 
                     def services = [
                         'payment-svc',
@@ -74,138 +53,81 @@ pipeline {
                         'portal'
                     ]
 
-
                     services.each { svc ->
-
 
                         def image = "${REGISTRY}/${OWNER}/paylane-${svc}"
 
-
                         sh """
-
                             echo "Building ${image}"
 
-
-                            docker build -t ${image}:${BUILD_NUMBER} -t ${image}:latest services/${svc}
-
+                            docker build \
+                                -t ${image}:${BUILD_NUMBER} \
+                                -t ${image}:latest \
+                                services/${svc}
 
                             echo "Pushing ${image}:${BUILD_NUMBER}"
 
                             docker push ${image}:${BUILD_NUMBER}
-
                             docker push ${image}:latest
-
                         """
-
                     }
-
                 }
-
             }
-
         }
-
-
-
 
         stage('Deploy to EC2') {
-
-
             steps {
-
-
                 sshagent(['paylane-ec2-key']) {
-
-
                     sh '''
+                        ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} "
 
-                    ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} "
+                        cd /opt/paylane &&
 
-                    cd /opt/paylane &&
+                        echo '$GHCR_PSW' | docker login ghcr.io \
+                            -u '$GHCR_USR' \
+                            --password-stdin &&
 
+                        docker compose -f docker-compose.yml pull &&
 
-                    echo '$GHCR_PSW' | docker login ghcr.io \
-                    -u '$GHCR_USR' \
-                    --password-stdin &&
+                        docker compose -f docker-compose.yml up -d
 
-
-                    docker compose -f docker-compose.yml pull &&
-
-
-                    docker compose -f docker-compose.yml up -d
-
-                    "
-
+                        "
                     '''
-
                 }
-
             }
-
         }
-
-
-
 
         stage('Verify Deployment') {
-
-
             steps {
-
-
                 sshagent(['paylane-ec2-key']) {
-
-
                     sh '''
+                        ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} "
 
-                    ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} "
+                        cd /opt/paylane &&
 
-                    cd /opt/paylane &&
+                        docker ps
 
-                    docker ps
-
-                    "
-
+                        "
                     '''
-
                 }
-
             }
-
         }
-
-
     }
-
-
 
     post {
 
-
         success {
-
             echo "Paylane deployment successful"
-
         }
-
 
         failure {
-
             echo "Paylane deployment failed"
-
         }
-
 
         always {
-
             sh '''
-
-            docker logout ghcr.io || true
-
+                docker logout ghcr.io || true
             '''
-
         }
-
     }
-
 }
